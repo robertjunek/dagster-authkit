@@ -415,6 +415,28 @@ class AuthBackend(ABC):
         """
         raise NotImplementedError(f"{self.get_name()} backend does not support user deletion")
 
+    def verify_password(self, username: str, password: str) -> bool:
+        """
+        Checks a user's current password without any side effects
+        (OPTIONAL - only for local backends).
+
+        Unlike ``authenticate``, this must not modify the user record
+        (e.g. no ``last_login`` update).
+
+        Args:
+            username: Username
+            password: Password in plain text
+
+        Returns:
+            bool: True if the password matches an active user
+
+        Raises:
+            NotImplementedError: If backend doesn't support it
+        """
+        raise NotImplementedError(
+            f"{self.get_name()} backend does not support password verification"
+        )
+
     def change_password(
         self, username: str, new_password: str, performed_by: str = "system"
     ) -> bool:

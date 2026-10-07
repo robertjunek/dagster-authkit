@@ -40,6 +40,9 @@ class AuthConfig:
             ``DAGSTER_AUTH_RATE_LIMIT_ATTEMPTS``   Default: ``5``
             ``DAGSTER_AUTH_RATE_LIMIT_WINDOW``     Default: ``300`` (seconds)
 
+        **Password policy (UI password change, backend=sql):**
+            ``DAGSTER_AUTH_PASSWORD_MIN_LENGTH``   Default: ``8``
+
         **LDAP (when backend=ldap):**
             ``DAGSTER_AUTH_LDAP_SERVER``, ``DAGSTER_AUTH_LDAP_BASE_DN``,
             ``DAGSTER_AUTH_LDAP_BIND_DN``, ``DAGSTER_AUTH_LDAP_BIND_PASSWORD``,
@@ -122,6 +125,9 @@ class AuthConfig:
         self.RATE_LIMIT_ENABLED = os.getenv("DAGSTER_AUTH_RATE_LIMIT", "true").lower() == "true"
         self.RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("DAGSTER_AUTH_RATE_LIMIT_ATTEMPTS", "5"))
         self.RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("DAGSTER_AUTH_RATE_LIMIT_WINDOW", "300"))
+
+        # Password policy (self-service password change in the UI)
+        self.PASSWORD_MIN_LENGTH = int(os.getenv("DAGSTER_AUTH_PASSWORD_MIN_LENGTH", "8"))
 
         # LDAP settings
         self.DAGSTER_AUTH_LDAP_SERVER = os.getenv("DAGSTER_AUTH_LDAP_SERVER")
@@ -230,6 +236,14 @@ class AuthConfig:
 
         if self.SESSION_MAX_AGE < 60:
             raise ValueError("SESSION_MAX_AGE must be at least 60 seconds")
+
+        from dagster_authkit.auth.security import SecurityHardening
+
+        if not 1 <= self.PASSWORD_MIN_LENGTH <= SecurityHardening.PASSWORD_MAX_LENGTH:
+            raise ValueError(
+                "PASSWORD_MIN_LENGTH must be between 1 and "
+                f"{SecurityHardening.PASSWORD_MAX_LENGTH}"
+            )
 
         if len(self.SECRET_KEY) < 16:
             raise ValueError("SECRET_KEY must be at least 16 characters")

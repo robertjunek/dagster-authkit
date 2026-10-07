@@ -13,6 +13,8 @@ Covers:
 
 import re
 
+import pytest
+
 from dagster_authkit.auth.security import SecurityHardening
 
 
@@ -222,3 +224,64 @@ class TestGenerateRandomPassword:
         """Multiple generated passwords should be unique."""
         passwords = {SecurityHardening.generate_random_password() for _ in range(10)}
         assert len(passwords) == 10
+
+
+class TestValidatePasswordStrength:
+    """Verifies the password policy used by the self-service password change."""
+
+    @pytest.mark.parametrize(
+        "password",
+        ["Passw0rd", "aB3" + "x" * 5, "Žluťoučký kůň 1", "A1" + "b" * 254],
+    )
+    def test_accepts_valid_passwords(self, password):
+        """Passwords satisfying every rule should return None."""
+        assert SecurityHardening.validate_password_strength(password) is None
+
+    @pytest.mark.parametrize(
+        "password,fragment",
+        [
+            ("", "at least 8 characters"),
+            ("Aa1", "at least 8 characters"),
+            ("Passw0r", "at least 8 characters"),
+            ("password1", "uppercase"),
+            ("PASSWORD1", "lowercase"),
+            ("Password", "digit"),
+            ("12345678", "lowercase"),
+            ("!!!!!!!!", "lowercase"),
+        ],
+    )
+    def test_rejects_weak_passwords(self, password, fragment):
+        """Each violated rule should be named in the returned message."""
+        message = SecurityHardening.validate_password_strength(password)
+        assert message is not None
+        assert fragment in message
+
+    def test_length_boundaries(self):
+        """Exactly min_length passes; one character less fails."""
+        assert SecurityHardening.validate_password_strength("Passw0rd", min_length=8) is None
+        assert SecurityHardening.validate_password_strength("Passw0r", min_length=8) is not None
+
+    def test_custom_min_length(self):
+        """min_length should be honoured and reported in the message."""
+        message = SecurityHardening.validate_password_strength("Passw0rd", min_length=12)
+        assert message == "Password must be at least 12 characters long."
+        assert SecurityHardening.validate_password_strength("Passw0rdPassw0rd", 12) is None
+
+    def test_max_length(self):
+        """Passwords above PASSWORD_MAX_LENGTH should be rejected."""
+        limit = SecurityHardening.PASSWORD_MAX_LENGTH
+        assert SecurityHardening.validate_password_strength("A1" + "b" * (limit - 2)) is None
+        message = SecurityHardening.validate_password_strength("A1" + "b" * (limit - 1))
+        assert message is not None
+        assert f"at most {limit}" in message
+
+    def test_message_does_not_echo_password(self):
+        """The rejection reason must never contain the candidate password."""
+        candidate = "secretcandidate"
+        assert candidate not in SecurityHardening.validate_password_strength(candidate)
+
+    def test_generated_passwords_satisfy_policy(self):
+        """generate_random_password output should always pass the policy."""
+        for _ in range(20):
+            password = SecurityHardening.generate_random_password()
+            assert SecurityHardening.validate_password_strength(password) is None

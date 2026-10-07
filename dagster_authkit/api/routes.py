@@ -1,7 +1,7 @@
 """
 Authentication Routes
 
-Login/logout endpoints + HTML pages.
+Login/logout/change-password endpoints + HTML pages.
 Matched with the finalized Peewee SQL Backend and stdout Audit Logging.
 """
 
@@ -30,7 +30,7 @@ from dagster_authkit.utils.audit import (
     log_rate_limit_violation,
 )
 from dagster_authkit.utils.config import config
-from dagster_authkit.utils.templates import render_login_page
+from dagster_authkit.utils.templates import render_change_password_page, render_login_page
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,9 @@ logger = logging.getLogger(__name__)
 # Tokens are signed, not stored server-side — works across K8s pods.
 _csrf_serializer = URLSafeTimedSerializer(config.SECRET_KEY)
 _CSRF_MAX_AGE = 3600
+
+# Backends whose users may change their own password from the UI.
+PASSWORD_CHANGE_BACKENDS = ("sql", "sqlite")
 
 
 def _generate_csrf_token() -> str:
@@ -261,17 +264,210 @@ async def logout(request: Request) -> Response:
     return response
 
 
+def _get_session_user(request: Request) -> dict:
+    """Return the validated session payload of the current request, or {} if none."""
+    session_token = request.cookies.get(config.SESSION_COOKIE_NAME)
+    if not session_token:
+        return {}
+    return sessions.validate(session_token) or {}
+
+
+def _change_password_response(
+    request: Request,
+    username: str,
+    error: str = "",
+    success: bool = False,
+    status_code: int = 200,
+) -> Response:
+    """Render the change password page, issuing a CSRF cookie when needed."""
+    # Same reuse-or-mint logic as login_page: do not rotate a valid cookie.
+    existing_cookie = request.cookies.get("csrf_token")
+    if existing_cookie is not None and _validate_csrf_token(existing_cookie):
+        csrf_token = existing_cookie
+        needs_cookie = False
+    else:
+        csrf_token = _generate_csrf_token()
+        needs_cookie = True
+
+    html = render_change_password_page(
+        username,
+        csrf_token=csrf_token,
+        error=error,
+        success=success,
+        min_length=config.PASSWORD_MIN_LENGTH,
+    )
+    response = HTMLResponse(content=html, status_code=status_code)
+    # The page holds credentials-related state; never serve it from cache.
+    response.headers["Cache-Control"] = "no-store"
+    if needs_cookie:
+        response.set_cookie(
+            key="csrf_token",
+            value=csrf_token,
+            max_age=_CSRF_MAX_AGE,
+            httponly=True,
+            secure=config.SESSION_COOKIE_SECURE,
+            samesite="lax",
+        )
+    return response
+
+
+_CHANGE_PASSWORD_LOGIN_REDIRECT = "/auth/login?next=/auth/change-password"
+
+
+async def change_password_page(request: Request) -> Response:
+    """GET /auth/change-password - Displays the change password form."""
+    if config.AUTH_BACKEND not in PASSWORD_CHANGE_BACKENDS:
+        return Response(content="Not Found", status_code=404)
+
+    # /auth/ is a public prefix in the middleware, so the session is checked here.
+    username = _get_session_user(request).get("username")
+    if not username:
+        return RedirectResponse(url=_CHANGE_PASSWORD_LOGIN_REDIRECT, status_code=302)
+
+    success = request.query_params.get("success") == "1"
+    return _change_password_response(request, username, success=success)
+
+
+async def process_change_password(request: Request) -> Response:
+    """
+    POST /auth/change-password — Changes the password of the signed-in user.
+
+    The target account is always the session's user; the form only carries
+    the current password and the new password twice. Nothing but the
+    password (and the session version, to sign out other devices) changes.
+
+    Flow:
+    1. Require a supported backend and a valid session.
+    2. Validate CSRF token (double-submit cookie, cookie mandatory).
+    3. Validate the form (confirmation matches, password policy).
+    4. Rate limit, then verify the current password via the backend.
+    5. Change the password, rotate the session, redirect back with success.
+
+    Returns:
+        303 redirect to the form on success, the form with an error
+        (4xx) otherwise, or a 302 redirect to login without a session.
+    """
+    if config.AUTH_BACKEND not in PASSWORD_CHANGE_BACKENDS:
+        return Response(content="Not Found", status_code=404)
+
+    user_data = _get_session_user(request)
+    username = user_data.get("username")
+    if not username:
+        return RedirectResponse(url=_CHANGE_PASSWORD_LOGIN_REDIRECT, status_code=302)
+
+    client_ip = _get_client_ip(request)
+
+    def fail(reason: str, message: str, status_code: int = 400) -> Response:
+        log_audit_event("PASSWORD_CHANGE_FAILED", username, reason=reason, ip=client_ip)
+        return _change_password_response(request, username, error=message, status_code=status_code)
+
+    form = await request.form()
+
+    # CSRF validation: unlike login, the cookie is mandatory here because the
+    # request is authenticated and state-changing.
+    csrf_token = str(form.get("csrf_token", ""))
+    csrf_cookie = request.cookies.get("csrf_token", "")
+    if not csrf_cookie or not _validate_csrf_token(csrf_token, cookie=csrf_cookie):
+        logger.warning("CSRF validation failed for password change")
+        return fail("CSRF", "Invalid request. Please try again.", 403)
+
+    current_password = str(form.get("current_password", ""))
+    new_password = str(form.get("new_password", ""))
+    new_password_confirm = str(form.get("new_password_confirm", ""))
+
+    if not current_password or not new_password:
+        return fail("MISSING_FIELDS", "All fields are required.")
+
+    if new_password != new_password_confirm:
+        return fail("CONFIRMATION_MISMATCH", "New passwords do not match.")
+
+    policy_error = SecurityHardening.validate_password_strength(
+        new_password, config.PASSWORD_MIN_LENGTH
+    )
+    if policy_error:
+        return fail("WEAK_PASSWORD", policy_error)
+
+    if new_password == current_password:
+        return fail("SAME_PASSWORD", "New password must differ from the current one.")
+
+    # Rate limit guesses of the current password (e.g. from a hijacked session).
+    # Separate key so it does not interfere with the login limiter.
+    rl_identifier = f"pwchange:{username}"
+    rl = get_rate_limiter()
+    limited, attempts = rl.check_and_record(rl_identifier)
+    if limited:
+        log_rate_limit_violation(username, client_ip, attempts)
+        return fail("RATE_LIMIT", "Too many attempts. Please try again later.", 429)
+
+    try:
+        backend = get_backend(config.AUTH_BACKEND, config.__dict__)
+        if not await run_in_threadpool(backend.verify_password, username, current_password):
+            return fail("INVALID_CURRENT_PASSWORD", "Current password is incorrect.")
+
+        changed = await run_in_threadpool(
+            backend.change_password, username, new_password, performed_by=username
+        )
+    except Exception as e:
+        logger.exception(f"Auth Backend Error during password change: {e}")
+        return fail("BACKEND_ERROR", "System error. Please try again later.", 500)
+
+    if not changed:
+        return fail("BACKEND_ERROR", "System error. Please try again later.", 500)
+
+    rl.reset(rl_identifier)
+
+    # change_password invalidated every session of the user (other devices are
+    # signed out); keep this browser signed in with a fresh session.
+    session_data = {k: v for k, v in user_data.items() if k != "_v"}
+    try:
+        session_token = sessions.rotate(session_data)
+    except Exception as e:
+        # The password is already changed; only the new session could not be
+        # issued (e.g. session store outage). Send the user to sign in again
+        # instead of failing the request.
+        logger.exception(f"Session rotation failed after password change: {e}")
+        log_audit_event("SESSION_ROTATION_FAILED", username, ip=client_ip)
+        response = RedirectResponse(
+            url="/auth/login?next=/&error=Password+changed.+Please+sign+in+again.",
+            status_code=303,
+        )
+        response.delete_cookie(
+            key=config.SESSION_COOKIE_NAME,
+            httponly=config.SESSION_COOKIE_HTTPONLY,
+            secure=config.SESSION_COOKIE_SECURE,
+            samesite=config.SESSION_COOKIE_SAMESITE,
+        )
+        return response
+    track_session_created()
+
+    session_hash = hashlib.sha256(session_token.encode()).hexdigest()[:16]
+    log_audit_event("SESSION_CREATED", username, session_id=session_hash, ip=client_ip)
+
+    response = RedirectResponse(url="/auth/change-password?success=1", status_code=303)
+    response.set_cookie(
+        key=config.SESSION_COOKIE_NAME,
+        value=session_token,
+        max_age=config.SESSION_MAX_AGE,
+        httponly=config.SESSION_COOKIE_HTTPONLY,
+        secure=config.SESSION_COOKIE_SECURE,
+        samesite=config.SESSION_COOKIE_SAMESITE,
+    )
+    return response
+
+
 def create_auth_routes() -> Router:
     """
     Creates router with authentication routes.
 
     Returns:
-        Starlette Router with routes /login, /logout, /process
+        Starlette Router with routes /login, /logout, /process, /change-password
     """
     return Router(
         routes=[
             Route("/login", login_page, methods=["GET"]),
             Route("/process", process_login, methods=["POST"]),
             Route("/logout", logout, methods=["GET"]),
+            Route("/change-password", change_password_page, methods=["GET"]),
+            Route("/change-password", process_change_password, methods=["POST"]),
         ]
     )

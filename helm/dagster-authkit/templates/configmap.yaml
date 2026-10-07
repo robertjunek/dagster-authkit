@@ -15,6 +15,7 @@ data:
   DAGSTER_AUTH_RATE_LIMIT: {{ .Values.authkit.rateLimit.enabled | quote }}
   DAGSTER_AUTH_RATE_LIMIT_ATTEMPTS: {{ .Values.authkit.rateLimit.maxAttempts | quote }}
   DAGSTER_AUTH_RATE_LIMIT_WINDOW: {{ .Values.authkit.rateLimit.windowSeconds | quote }}
+  DAGSTER_AUTH_PASSWORD_MIN_LENGTH: {{ .Values.authkit.passwordMinLength | quote }}
   DAGSTER_AUTH_UNKNOWN_MUTATION_ROLE: {{ .Values.authkit.rbac.unknownMutationRole | quote }}
   DAGSTER_AUTH_REST_WRITE_ROLE: {{ .Values.authkit.rbac.restWriteRole | quote }}
   DAGSTER_AUTH_PROXY_USER_HEADER: {{ .Values.authkit.proxy.userHeader | quote }}

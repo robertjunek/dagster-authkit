@@ -274,6 +274,40 @@ class SecurityHardening:
             logger.exception(f"Password verification error: {e}")
             return False
 
+    # Upper bound keeps hashing cost predictable for user-supplied passwords.
+    PASSWORD_MAX_LENGTH = 256
+
+    @staticmethod
+    def validate_password_strength(password: str, min_length: int = 8) -> Optional[str]:
+        """
+        Checks a new password against the password policy.
+
+        Policy: at least ``min_length`` characters (and at most
+        ``PASSWORD_MAX_LENGTH``), containing at least one lowercase letter,
+        one uppercase letter and one digit.
+
+        Args:
+            password: Plain text password candidate
+            min_length: Minimum number of characters required
+
+        Returns:
+            Optional[str]: Human-readable reason if the password is rejected,
+            None if it satisfies the policy
+        """
+        if len(password) < min_length:
+            return f"Password must be at least {min_length} characters long."
+        if len(password) > SecurityHardening.PASSWORD_MAX_LENGTH:
+            return (
+                f"Password must be at most {SecurityHardening.PASSWORD_MAX_LENGTH} characters long."
+            )
+        if not any(c.islower() for c in password):
+            return "Password must contain at least one lowercase letter."
+        if not any(c.isupper() for c in password):
+            return "Password must contain at least one uppercase letter."
+        if not any(c.isdigit() for c in password):
+            return "Password must contain at least one digit."
+        return None
+
     @staticmethod
     def generate_random_password(length: int = 16) -> str:
         """

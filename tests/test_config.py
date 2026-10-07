@@ -103,6 +103,41 @@ class TestAuthConfigValidation:
         cfg = AuthConfig()
         assert cfg.AUTH_BACKEND == backend
 
+    def test_password_min_length_default(self):
+        """PASSWORD_MIN_LENGTH should default to 8."""
+        cfg = AuthConfig()
+        assert cfg.PASSWORD_MIN_LENGTH == 8
+
+    def test_password_min_length_from_env(self, monkeypatch):
+        """PASSWORD_MIN_LENGTH should be read from DAGSTER_AUTH_PASSWORD_MIN_LENGTH."""
+        monkeypatch.setenv("DAGSTER_AUTH_PASSWORD_MIN_LENGTH", "14")
+        cfg = AuthConfig()
+        assert cfg.PASSWORD_MIN_LENGTH == 14
+
+    def test_password_min_length_may_equal_max_length(self, monkeypatch):
+        """The largest satisfiable minimum (the maximum length) is accepted."""
+        monkeypatch.setenv("DAGSTER_AUTH_PASSWORD_MIN_LENGTH", "256")
+        assert AuthConfig().PASSWORD_MIN_LENGTH == 256
+
+    def test_password_min_length_above_max_length_raises(self, monkeypatch):
+        """A minimum above the maximum length would reject every password."""
+        monkeypatch.setenv("DAGSTER_AUTH_PASSWORD_MIN_LENGTH", "257")
+        with pytest.raises(ValueError, match="PASSWORD_MIN_LENGTH"):
+            AuthConfig()
+
+    @pytest.mark.parametrize("value", ["0", "-3"])
+    def test_password_min_length_too_low_raises(self, monkeypatch, value):
+        """PASSWORD_MIN_LENGTH below 1 should raise ValueError."""
+        monkeypatch.setenv("DAGSTER_AUTH_PASSWORD_MIN_LENGTH", value)
+        with pytest.raises(ValueError, match="PASSWORD_MIN_LENGTH"):
+            AuthConfig()
+
+    def test_password_min_length_not_a_number_raises(self, monkeypatch):
+        """A non-numeric PASSWORD_MIN_LENGTH should raise ValueError."""
+        monkeypatch.setenv("DAGSTER_AUTH_PASSWORD_MIN_LENGTH", "eight")
+        with pytest.raises(ValueError):
+            AuthConfig()
+
     def test_session_max_age_too_low_raises(self, monkeypatch):
         """SESSION_MAX_AGE below 60 should raise ValueError."""
         monkeypatch.setenv("DAGSTER_AUTH_SESSION_MAX_AGE", "30")

@@ -822,3 +822,45 @@ class TestVerifyPatches:
         parent_mod, child_mod = self._make_fake_webserver("patched_index_html")
         with patch.dict(sys.modules, {"dagster_webserver": parent_mod, "dagster_webserver.webserver": child_mod}):
             assert verify_patches() is True
+
+
+# ---------------------------------------------------------------------------
+# Change password menu flag
+# ---------------------------------------------------------------------------
+
+class TestCanChangePasswordFlag:
+    """Verifies that the injected user object tells the menu whether to offer
+    the change password link (local SQL backends only)."""
+
+    @staticmethod
+    async def _injected_user(monkeypatch, backend_name: str) -> dict:
+        import re
+
+        from dagster_authkit.core import patch as patch_module
+
+        monkeypatch.setattr(patch_module.config, "AUTH_BACKEND", backend_name)
+        scope = _make_scope()
+        state = State()
+        state.user = _make_user()
+        scope["state"] = state
+
+        monkeypatch.setattr(
+            patch_module, "original_index_html", lambda self, req: _html_response(_MINIMAL_HTML)
+        )
+        response = await patch_module._inject_resilient_ui(None, Request(scope))
+
+        match = re.search(r"const user = (\{.*?\});", response.body.decode())
+        assert match, "user object not injected"
+        return json.loads(match.group(1))
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("backend_name", ["sql", "sqlite"])
+    async def test_enabled_for_sql_backends(self, monkeypatch, backend_name):
+        user = await self._injected_user(monkeypatch, backend_name)
+        assert user["can_change_password"] is True
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("backend_name", ["dummy", "ldap", "oauth", "proxy"])
+    async def test_disabled_for_external_backends(self, monkeypatch, backend_name):
+        user = await self._injected_user(monkeypatch, backend_name)
+        assert user["can_change_password"] is False

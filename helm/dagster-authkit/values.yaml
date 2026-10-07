@@ -79,6 +79,8 @@ authkit:
     maxAttempts: 5
     windowSeconds: 300
 
+  passwordMinLength: 8  # Policy for the UI password change (SQL backend)
+
   logLevel: INFO
   auditLog: true
 

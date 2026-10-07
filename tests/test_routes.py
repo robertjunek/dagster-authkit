@@ -3,6 +3,10 @@ Tests for dagster_authkit/api/routes.py
 
 Covers:
 - CSRF double-submit cookie pattern
+- Route table (login, logout, change password)
+
+The change password flow itself is covered end-to-end in
+tests/test_change_password.py.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -183,3 +187,33 @@ class TestCsrfDoubleSubmit:
         assert "error=" not in location.replace("/auth/login?", ""), (
             f"Expected success redirect, got: {location}"
         )
+
+
+class TestAuthRouteTable:
+    """Verifies the routes registered by create_auth_routes."""
+
+    @staticmethod
+    def _table():
+        from dagster_authkit.api.routes import create_auth_routes
+
+        return {(r.path, m) for r in create_auth_routes().routes for m in r.methods}
+
+    def test_change_password_routes_registered(self):
+        table = self._table()
+        assert ("/change-password", "GET") in table
+        assert ("/change-password", "POST") in table
+
+    def test_existing_routes_unchanged(self):
+        table = self._table()
+        assert ("/login", "GET") in table
+        assert ("/process", "POST") in table
+        assert ("/logout", "GET") in table
+
+    def test_change_password_not_reachable_by_other_methods(self):
+        methods = {m for path, m in self._table() if path == "/change-password"}
+        assert methods == {"GET", "HEAD", "POST"}
+
+    def test_password_change_backends(self):
+        from dagster_authkit.api.routes import PASSWORD_CHANGE_BACKENDS
+
+        assert set(PASSWORD_CHANGE_BACKENDS) == {"sql", "sqlite"}

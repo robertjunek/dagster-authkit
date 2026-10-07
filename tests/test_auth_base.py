@@ -308,6 +308,8 @@ class TestAuthBackendABC:
         with pytest.raises(NotImplementedError):
             backend.change_password("test", "newpass")
         with pytest.raises(NotImplementedError):
+            backend.verify_password("test", "pass")
+        with pytest.raises(NotImplementedError):
             backend.list_users()
         with pytest.raises(NotImplementedError):
             backend.change_role("test", Role.ADMIN)

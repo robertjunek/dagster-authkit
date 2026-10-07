@@ -220,6 +220,19 @@ dagster-authkit list-permissions
 
 ---
 
+## 🔑 Self-Service Password Change
+
+With the SQL backend (`sql` / `sqlite`), signed-in users can change their own password from the user menu in the Dagster sidebar (**Change password**, or directly at `/auth/change-password`).
+
+- The form asks for the current password and the new password twice. Nothing else on the account can be changed there, and the account is always the one of the current session.
+- New passwords need at least `DAGSTER_AUTH_PASSWORD_MIN_LENGTH` characters (default `8`), with a lowercase letter, an uppercase letter and a digit.
+- After a change, every other session of the user is signed out; the current browser stays signed in.
+- Attempts are rate limited (same settings as login) and written to the audit log (`PASSWORD_CHANGED`, `PASSWORD_CHANGE_FAILED`).
+
+The menu entry is hidden for backends that manage credentials elsewhere (LDAP, proxy, OAuth). The CLI `change-password` command remains the admin reset path and does not enforce the policy.
+
+---
+
 ## 🔮 Roadmap
 
 ### Current (v1.0.0)
@@ -241,6 +254,7 @@ dagster-authkit list-permissions
 * ✅ Proxy trusted IP allowlist
 * ✅ Token-protected `/auth/metrics`
 * ✅ Automated `CHANGELOG.md` generation
+* ✅ Self-service password change in the UI (SQL backend)
 
 ### Next
 
@@ -263,6 +277,21 @@ Open a PR. If it works and keeps things simple, we'll merge it.
 - People with Active Directory experience to validate the LDAP backend
 - Testing on different Dagster versions
 - Helm chart contributions
+
+**Running the tests:**
+
+```bash
+make dev && make test
+```
+
+The end-to-end suite in `tests/test_change_password.py` runs against SQLite with cookie sessions by default. To also run it against PostgreSQL, MySQL and Redis, point it at disposable instances (the `users` table is dropped and the Redis database is flushed):
+
+```bash
+export AUTHKIT_TEST_POSTGRES_URL=postgresql://postgres:test@127.0.0.1:5432/authkit
+export AUTHKIT_TEST_MYSQL_URL=mysqlconnector://root:test@127.0.0.1:3306/authkit
+export AUTHKIT_TEST_REDIS_URL=redis://127.0.0.1:6379/15
+uv run pytest tests/test_change_password.py
+```
 
 ---
 

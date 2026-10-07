@@ -5,6 +5,199 @@ All HTML/CSS/JS strings for AuthKit interface.
 
 import html
 
+# Stylesheet shared by the standalone AuthKit pages (login, change password).
+_AUTH_PAGE_STYLE = """
+:root {
+    /* Tokens extraídos do seu lightThemeColors.tsx */
+    --bg-default: #ffffff;
+    --text-default: #1f2937;
+    --text-light: #6b7280;
+    --border-default: #d1d5db;
+    --accent-primary: #234ad1;
+    --accent-primary-hover: #1a39a7;
+    --focus-ring: rgba(35, 74, 209, 0.2);
+    --error-bg: #fef2f2;
+    --error-text: #991b1b;
+    --success-bg: #f0fdf4;
+    --success-text: #166534;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* Tokens extraídos do seu darkThemeColors.tsx */
+        --bg-default: #111827;
+        --text-default: #ffffff;
+        --text-light: #9ca3af;
+        --border-default: #374151;
+        --accent-primary: #3b82f6;
+        --accent-primary-hover: #60a5fa;
+        --focus-ring: rgba(59, 130, 246, 0.4);
+        --error-bg: #450a0a;
+        --error-text: #fca5a5;
+        --success-bg: #052e16;
+        --success-text: #86efac;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background-color: var(--bg-default);
+    color: var(--text-default);
+    font-family: "Geist Sans", -apple-system, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 40px;
+    border-radius: 8px;
+    /* No Dagster as bordas são sutis e os cards têm sombras leves */
+    border: 1px solid var(--border-default);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.logo-svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+}
+
+h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.subtitle {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-top: 8px;
+}
+
+.form-group {
+    margin-bottom: 24px;
+}
+
+label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    color: var(--text-light);
+}
+
+/* Estilo TextInput.tsx - Simulação do BlueprintJS */
+input {
+    width: 100%;
+    height: 36px;
+    padding: 0 12px;
+    font-size: 14px;
+    background: transparent;
+    color: inherit;
+    border: 1px solid var(--border-default);
+    border-radius: 4px;
+    transition: border-color 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Estilo Button.tsx */
+button {
+    width: 100%;
+    height: 40px;
+    background-color: var(--accent-primary);
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+
+button:hover {
+    background-color: var(--accent-primary-hover);
+}
+
+.error-message {
+    background-color: var(--error-bg);
+    color: var(--error-text);
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin-bottom: 24px;
+    border: 1px solid var(--error-text);
+}
+
+.success-message {
+    background-color: var(--success-bg);
+    color: var(--success-text);
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin-bottom: 24px;
+    border: 1px solid var(--success-text);
+}
+
+.hint {
+    font-size: 12px;
+    color: var(--text-light);
+    margin-top: 8px;
+}
+
+.back-link {
+    display: block;
+    margin-top: 24px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--accent-primary);
+    text-decoration: none;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+.footer {
+    margin-top: 40px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+"""
+
+# Logo shared by the standalone AuthKit pages.
+_AUTH_PAGE_LOGO = """
+<svg class="logo-svg" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="48" height="48" rx="8" fill="#234AD1"/>
+    <path d="M12 16H20V24H12V16Z" fill="white"/>
+    <path d="M28 16H36V24H28V16Z" fill="white" fill-opacity="0.7"/>
+    <path d="M12 28H20V36H12V28Z" fill="white" fill-opacity="0.7"/>
+    <path d="M28 28H36V36H28V28Z" fill="white" fill-opacity="0.4"/>
+</svg>
+"""
+
 
 def render_login_page(next_url: str = "/", error: str = "", csrf_token: str = "") -> str:
     """
@@ -34,163 +227,13 @@ def render_login_page(next_url: str = "/", error: str = "", csrf_token: str = ""
                 <title>Sign in to Dagster</title>
                 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-sans/style.css">
                 <style>
-                    :root {{
-                        /* Tokens extraídos do seu lightThemeColors.tsx */
-                        --bg-default: #ffffff;
-                        --text-default: #1f2937;
-                        --text-light: #6b7280;
-                        --border-default: #d1d5db;
-                        --accent-primary: #234ad1;
-                        --accent-primary-hover: #1a39a7;
-                        --focus-ring: rgba(35, 74, 209, 0.2);
-                        --error-bg: #fef2f2;
-                        --error-text: #991b1b;
-                    }}
-
-                    @media (prefers-color-scheme: dark) {{
-                        :root {{
-                            /* Tokens extraídos do seu darkThemeColors.tsx */
-                            --bg-default: #111827;
-                            --text-default: #ffffff;
-                            --text-light: #9ca3af;
-                            --border-default: #374151;
-                            --accent-primary: #3b82f6;
-                            --accent-primary-hover: #60a5fa;
-                            --focus-ring: rgba(59, 130, 246, 0.4);
-                            --error-bg: #450a0a;
-                            --error-text: #fca5a5;
-                        }}
-                    }}
-
-                    * {{ box-sizing: border-box; }}
-
-                    body {{
-                        margin: 0;
-                        background-color: var(--bg-default);
-                        color: var(--text-default);
-                        font-family: "Geist Sans", -apple-system, system-ui, sans-serif;
-                        -webkit-font-smoothing: antialiased;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        min-height: 100vh;
-                    }}
-
-                    .login-card {{
-                        width: 100%;
-                        max-width: 400px;
-                        padding: 40px;
-                        border-radius: 8px;
-                        /* No Dagster as bordas são sutis e os cards têm sombras leves */
-                        border: 1px solid var(--border-default);
-                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-                    }}
-
-                    .header {{
-                        text-align: center;
-                        margin-bottom: 32px;
-                    }}
-
-                    .logo-svg {{
-                        width: 48px;
-                        height: 48px;
-                        margin-bottom: 16px;
-                    }}
-
-                    h1 {{
-                        font-size: 20px;
-                        font-weight: 600;
-                        margin: 0;
-                        letter-spacing: -0.02em;
-                    }}
-
-                    .subtitle {{
-                        font-size: 14px;
-                        color: var(--text-light);
-                        margin-top: 8px;
-                    }}
-
-                    .form-group {{
-                        margin-bottom: 24px;
-                    }}
-
-                    label {{
-                        display: block;
-                        font-size: 12px;
-                        font-weight: 600;
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                        margin-bottom: 8px;
-                        color: var(--text-light);
-                    }}
-
-                    /* Estilo TextInput.tsx - Simulação do BlueprintJS */
-                    input {{
-                        width: 100%;
-                        height: 36px;
-                        padding: 0 12px;
-                        font-size: 14px;
-                        background: transparent;
-                        color: inherit;
-                        border: 1px solid var(--border-default);
-                        border-radius: 4px;
-                        transition: border-color 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
-                    }}
-
-                    input:focus {{
-                        outline: none;
-                        border-color: var(--accent-primary);
-                        box-shadow: 0 0 0 3px var(--focus-ring);
-                    }}
-
-                    /* Estilo Button.tsx */
-                    button {{
-                        width: 100%;
-                        height: 40px;
-                        background-color: var(--accent-primary);
-                        color: #ffffff;
-                        border: none;
-                        border-radius: 4px;
-                        font-size: 14px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: background-color 0.1s;
-                    }}
-
-                    button:hover {{
-                        background-color: var(--accent-primary-hover);
-                    }}
-
-                    .error-message {{
-                        background-color: var(--error-bg);
-                        color: var(--error-text);
-                        padding: 12px;
-                        border-radius: 4px;
-                        font-size: 13px;
-                        margin-bottom: 24px;
-                        border: 1px solid var(--error-text);
-                    }}
-
-                    .footer {{
-                        margin-top: 40px;
-                        text-align: center;
-                        font-size: 11px;
-                        color: var(--text-light);
-                        text-transform: uppercase;
-                        letter-spacing: 0.1em;
-                    }}
+                    {_AUTH_PAGE_STYLE}
                 </style>
             </head>
             <body>
                 <div class="login-card">
                     <div class="header">
-                        <svg class="logo-svg" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect width="48" height="48" rx="8" fill="#234AD1"/>
-                            <path d="M12 16H20V24H12V16Z" fill="white"/>
-                            <path d="M28 16H36V24H28V16Z" fill="white" fill-opacity="0.7"/>
-                            <path d="M12 28H20V36H12V28Z" fill="white" fill-opacity="0.7"/>
-                            <path d="M28 28H36V36H28V28Z" fill="white" fill-opacity="0.4"/>
-                        </svg>
+                        {_AUTH_PAGE_LOGO}
                         <h1>Dagster AuthKit</h1>
                         <p class="subtitle">Please sign in to continue</p>
                     </div>
@@ -217,6 +260,101 @@ def render_login_page(next_url: str = "/", error: str = "", csrf_token: str = ""
                     <div class="footer">
                         Community-driven Security
                     </div>
+                </div>
+            </body>
+            </html>
+            """
+    return html_str
+
+
+def render_change_password_page(
+    username: str,
+    csrf_token: str = "",
+    error: str = "",
+    success: bool = False,
+    min_length: int = 8,
+) -> str:
+    """
+    Render the self-service change password page.
+
+    Shares the look of the login page. The form only carries the current
+    password and the new password (twice); the account being changed is
+    always taken from the session on the server side.
+    All user-supplied values are HTML-escaped before interpolation.
+
+    Args:
+        username:   Signed-in user, shown for orientation only.
+        csrf_token: Signed CSRF token injected as a hidden form field.
+        error:      Optional error message displayed above the form.
+        success:    Show the confirmation message instead of an error.
+        min_length: Minimum password length shown in the policy hint.
+
+    Returns:
+        Complete HTML string (``<!DOCTYPE html>`` to ``</html>``).
+    """
+    safe_username = html.escape(username, quote=True)
+    safe_error = html.escape(error, quote=True)
+    safe_csrf = html.escape(csrf_token, quote=True)
+    safe_min_length = int(min_length)
+
+    if success:
+        message = "<div class='success-message'>Password changed successfully.</div>"
+    elif error:
+        message = "<div class='error-message'>" + safe_error + "</div>"
+    else:
+        message = ""
+
+    html_str = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Change password - Dagster</title>
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-sans/style.css">
+                <style>
+                    {_AUTH_PAGE_STYLE}
+                </style>
+            </head>
+            <body>
+                <div class="login-card">
+                    <div class="header">
+                        {_AUTH_PAGE_LOGO}
+                        <h1>Change password</h1>
+                        <p class="subtitle">Signed in as {safe_username}</p>
+                    </div>
+
+                    {message}
+
+                    <form method="post" action="/auth/change-password">
+                        <input type="hidden" name="csrf_token" value="{safe_csrf}">
+
+                        <div class="form-group">
+                            <label for="current_password">Current password</label>
+                            <input type="password" id="current_password" name="current_password"
+                                   autocomplete="current-password" required autofocus>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="new_password">New password</label>
+                            <input type="password" id="new_password" name="new_password"
+                                   autocomplete="new-password" minlength="{safe_min_length}" required>
+                            <div class="hint">
+                                At least {safe_min_length} characters, with a lowercase letter,
+                                an uppercase letter and a digit.
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="new_password_confirm">Confirm new password</label>
+                            <input type="password" id="new_password_confirm" name="new_password_confirm"
+                                   autocomplete="new-password" required>
+                        </div>
+
+                        <button type="submit">Change password</button>
+                    </form>
+
+                    <a class="back-link" href="/">&larr; Back to Dagster</a>
                 </div>
             </body>
             </html>
@@ -396,6 +534,14 @@ def render_user_menu_injection(user_data_json: str, debug: bool, safe_mode: bool
                 background-color: rgba(239, 68, 68, 0.05);
             }}
 
+            .authkit-item.authkit-item-neutral {{
+                color: var(--color-text-default, inherit);
+            }}
+
+            .authkit-item.authkit-item-neutral:hover {{
+                background-color: rgba(128, 128, 128, 0.1);
+            }}
+
             #authkit-trigger {{
                 background: transparent;
                 border: none;
@@ -461,6 +607,20 @@ def render_user_menu_injection(user_data_json: str, debug: bool, safe_mode: bool
                 padding: 4px 8px;
                 border: 1px solid #ff6b6b;
                 border-radius: 4px;
+            }}
+
+            .authkit-safe-link {{
+                color: #e0e0e0;
+                font-size: 11px;
+                text-decoration: none;
+                margin-left: 8px;
+                padding: 4px 8px;
+                border: 1px solid #555;
+                border-radius: 4px;
+            }}
+
+            .authkit-safe-link:hover {{
+                background: rgba(255, 255, 255, 0.1);
             }}
 
             .authkit-safe-logout:hover {{
@@ -591,6 +751,7 @@ def render_user_menu_injection(user_data_json: str, debug: bool, safe_mode: bool
                             '<div style="font-size: 11px; color: #234AD1; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; margin-top: 2px;">' + user.role + '</div>' +
                             (user.has_email ? '<div style="font-size: 12px; color: #888; margin-top: 4px;">' + user.email + '</div>' : '') +
                         '</div>' +
+                        (user.can_change_password ? '<a href="/auth/change-password" class="authkit-item authkit-item-neutral">Change password</a>' : '') +
                         '<a href="/auth/logout" class="authkit-item">Sign Out</a>' +
                     '</div>';
 
@@ -626,6 +787,7 @@ def render_user_menu_injection(user_data_json: str, debug: bool, safe_mode: bool
                 fallbackMenu.innerHTML =
                     '<div class="authkit-safe-avatar">' + user.initial + '</div>' +
                     '<div class="authkit-safe-info">' + user.username + ' (' + user.role + ')</div>' +
+                    (user.can_change_password ? '<a href="/auth/change-password" class="authkit-safe-link">Change password</a>' : '') +
                     '<a href="/auth/logout" class="authkit-safe-logout">Sign Out</a>';
 
                 document.body.appendChild(fallbackMenu);

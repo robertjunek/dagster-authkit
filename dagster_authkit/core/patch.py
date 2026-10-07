@@ -21,7 +21,7 @@ from starlette.responses import HTMLResponse
 from starlette.routing import Mount, Route
 
 from dagster_authkit.api.health import health_endpoint, metrics_endpoint
-from dagster_authkit.api.routes import create_auth_routes
+from dagster_authkit.api.routes import PASSWORD_CHANGE_BACKENDS, create_auth_routes
 from dagster_authkit.auth.backends.base import AuthUser
 from dagster_authkit.utils.config import config
 from dagster_authkit.utils.templates import render_user_menu_injection
@@ -151,6 +151,8 @@ async def _inject_resilient_ui(self, request: Request) -> HTMLResponse:
             "role": role,
             "initial": initial,
             "has_email": bool(email),
+            # Only the local SQL backend lets users change their own password.
+            "can_change_password": config.AUTH_BACKEND in PASSWORD_CHANGE_BACKENDS,
         }
         user_data_json = json.dumps(
             {k: html.escape(str(v)) if isinstance(v, str) else v for k, v in raw.items()}

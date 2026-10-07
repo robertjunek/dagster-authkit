@@ -18,6 +18,48 @@ jobs:
       matrix:
         python-version: ['3.10', '3.11', '3.12']
 
+    # Disposable services for the tests that need real storage backends
+    # (tests/test_change_password.py, tests/integration/test_redis_session_revocation.py)
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: authkit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: authkit
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ptest"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      AUTHKIT_TEST_POSTGRES_URL: postgresql://postgres:test@127.0.0.1:5432/authkit
+      AUTHKIT_TEST_MYSQL_URL: mysqlconnector://root:test@127.0.0.1:3306/authkit
+      AUTHKIT_TEST_REDIS_URL: redis://127.0.0.1:6379/15
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,7 +74,7 @@ jobs:
         run: pip install uv
 
       - name: Install dependencies
-        run: uv pip install --system -e '.[dev,sqlite]'
+        run: uv pip install --system -e '.[dev,sqlite,postgresql,mysql,redis]'
 
       - name: Run linter (ruff)
         run: uv run ruff check .
